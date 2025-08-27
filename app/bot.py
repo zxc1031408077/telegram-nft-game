@@ -19,6 +19,10 @@ class TelegramBot:
         self.application = Application.builder().token(token).build()
         self.setup_handlers()
     
+    async def initialize(self):
+        """初始化应用"""
+        await self.application.initialize()
+    
     def setup_handlers(self):
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CommandHandler("play", self.play))
