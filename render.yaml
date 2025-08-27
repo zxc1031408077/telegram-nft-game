@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: telegram-nft-game
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: telegram-game-db
+          property: connectionString
+      - key: TELEGRAM_BOT_TOKEN
+        value: your_telegram_bot_token
+      - key: BLOCKCHAIN_NETWORK
+        value: polygon
+      - key: NFT_CONTRACT_ADDRESS
+        value: your_contract_address
+      - key: WALLET_PRIVATE_KEY
+        value: your_wallet_private_key
+      - key: POLYGON_RPC_URL
+        value: https://polygon-rpc.com
+
+  - type: worker
+    name: telegram-bot-worker
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.telegram.bot
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: telegram-game-db
+          property: connectionString
+      - key: TELEGRAM_BOT_TOKEN
+        value: your_telegram_bot_token
+
+databases:
+  - name: telegram-game-db
+    plan: free
+    databaseName: telegram_game
+    user: telegram_game_user
