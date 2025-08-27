@@ -77,48 +77,54 @@ class TelegramBot:
                 await update.message.reply_text("請先使用 /start 註冊")
     
     async def create_room(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """創建遊戲房間"""
-        user = update.effective_user
-        bet_amount = 10.0  # 默认下注金额
+    """創建遊戲房間"""
+    user = update.effective_user
+    bet_amount = 10.0  # 默认下注金额
+    
+    # 檢查餘額
+    async with AsyncSession(self.application.db_engine) as session:
+        result = await session.execute(select(User).where(User.telegram_id == user.id))
+        db_user = result.scalar_one_or_none()
         
-        # 檢查餘額
-        async with AsyncSession(self.application.db_engine) as session:
-            result = await session.execute(select(User).where(User.telegram_id == user.id))
-            db_user = result.scalar_one_or_none()
-            
-            if not db_user or db_user.balance < bet_amount:
-                await update.message.reply_text("餘額不足，無法創建房間")
-                return
-            
-            # 扣除下注金額
-            db_user.balance -= bet_amount
-            await session.commit()
+        if not db_user or db_user.balance < bet_amount:
+            await update.message.reply_text("餘額不足，無法創建房間")
+            return
         
-        # 創建房間
-        room_id = f"room_{user.id}_{hash(str(user.id) + str(update.message.date))}"
-        game_manager.create_room(room_id, user.id, "dice", bet_amount)
-        
-        # 保存房間到數據庫
-        async with AsyncSession(self.application.db_engine) as session:
-            new_room = GameRoom(
-                room_id=room_id,
-                game_type="dice",
-                creator_id=user.id,
-                players=str([user.id]),
-                bet_amount=bet_amount,
-                status="waiting"
-            )
-            session.add(new_room)
-            await session.commit()
-        
-        join_link = f"https://t.me/{context.bot.username}?start=join_{room_id}"
-        await update.message.reply_text(
-            f"房間已創建！房間號: {room_id}\n"
-            f"下注金額: {bet_amount}遊戲幣\n"
-            f"邀請鏈接: {join_link}\n"
-            f"等待其他玩家加入...\n"
-            f"輸入 /start_room_{room_id} 開始遊戲"
+        # 扣除下注金額
+        db_user.balance -= bet_amount
+        await session.commit()
+    
+    # 創建房間 - 使用更安全的ID生成方式
+    import secrets
+    import time
+    # 使用时间戳和随机数生成房间ID，避免负号
+    timestamp = int(time.time())
+    random_part = secrets.token_hex(4)  # 生成8个字符的随机十六进制字符串
+    room_id = f"room_{user.id}_{timestamp}_{random_part}"
+    
+    game_manager.create_room(room_id, user.id, "dice", bet_amount)
+    
+    # 保存房間到數據庫
+    async with AsyncSession(self.application.db_engine) as session:
+        new_room = GameRoom(
+            room_id=room_id,
+            game_type="dice",
+            creator_id=user.id,
+            players=str([user.id]),
+            bet_amount=bet_amount,
+            status="waiting"
         )
+        session.add(new_room)
+        await session.commit()
+    
+    join_link = f"https://t.me/{context.bot.username}?start=join_{room_id}"
+    await update.message.reply_text(
+        f"房間已創建！房間號: {room_id}\n"
+        f"下注金額: {bet_amount}遊戲幣\n"
+        f"邀請鏈接: {join_link}\n"
+        f"等待其他玩家加入...\n"
+        f"輸入 /start_room_{room_id} 開始遊戲"
+    )
     
     async def join_room(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """加入遊戲房間"""
