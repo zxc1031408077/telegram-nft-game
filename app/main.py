@@ -25,6 +25,9 @@ async def startup_event():
     global telegram_bot
     telegram_bot = TelegramBot(Config.TELEGRAM_BOT_TOKEN)
     
+    # 初始化应用
+    await telegram_bot.application.initialize()  # 添加这行
+    
     # 設置數據庫引擎到應用程序
     telegram_bot.application.db_engine = engine
     
